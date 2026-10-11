@@ -1,6 +1,7 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { useState, useEffect, useRef } from 'react';
 
 interface Portfolio {
@@ -33,9 +34,13 @@ const TRACKED = [
 ];
 
 export default function Home() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
-    api: '/api/chat',
+  const [input, setInput] = useState('');
+  const { messages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+    }),
   });
+  const isLoading = status === 'submitted' || status === 'streaming';
 
   const [portfolio, setPortfolio] = useState<Portfolio>({ USD: 10000 });
   const [risk, setRisk] = useState<RiskMetrics | null>(null);
@@ -373,18 +378,24 @@ export default function Home() {
                         ? 'bg-[#8b5cf6]/20 text-purple-100'
                         : 'bg-[#1a1a20] border border-gray-800'
                     }`}>
-                      {typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}
+                      {m.parts?.map((p: any) => p.type === 'text' ? p.text : '').join('') || ''}
                     </span>
                   </div>
                 ))}
                 {isLoading && <div className="text-gray-500 text-sm">Agent thinking…</div>}
               </div>
 
-              <form onSubmit={handleSubmit} className="flex gap-2">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (input.trim()) {
+                  sendMessage({ text: input });
+                  setInput('');
+                }
+              }} className="flex gap-2">
                 <input
                   className="flex-1 bg-[#0f0f12] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#8b5cf6]"
                   value={input}
-                  onChange={handleInputChange}
+                  onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask the agent…"
                 />
                 <button

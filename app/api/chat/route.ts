@@ -1,5 +1,5 @@
 import { createMCPClient } from '@ai-sdk/mcp';
-import { streamText, tool } from 'ai';
+import { streamText, tool, stepCountIs } from 'ai';
 import { z } from 'zod';
 import { getPortfolio, savePortfolio, resetPortfolio } from '@/lib/portfolio';
 
@@ -150,10 +150,10 @@ When the user asks for portfolio value or risk, first get live prices (CoinGecko
 Be concise, educational, and note that this is analysis and simulation only — not financial advice.`,
       messages,
       tools: allTools,
-      maxSteps: 12,
+      stopWhen: stepCountIs(12),
     });
 
-    return result.toDataStreamResponse();
+    return result.toUIMessageStreamResponse();
   } finally {
     await coingeckoClient.close();
     await basisClient.close();
