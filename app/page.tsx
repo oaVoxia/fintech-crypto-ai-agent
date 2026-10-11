@@ -53,7 +53,6 @@ export default function Home() {
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Register service worker for PWA
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(err => {
@@ -62,7 +61,6 @@ export default function Home() {
     }
   }, []);
 
-  // Clean up on mode change or unmount
   useEffect(() => {
     return () => {
       if (wsRef.current) {
@@ -80,7 +78,6 @@ export default function Home() {
     };
   }, [feedMode]);
 
-  // WebSocket feed with better lifecycle
   useEffect(() => {
     if (feedMode !== 'websocket') return;
 
@@ -136,7 +133,6 @@ export default function Home() {
     };
   }, [feedMode]);
 
-  // Polling feed (CoinGecko) with error handling
   useEffect(() => {
     if (feedMode !== 'polling') return;
 
@@ -179,7 +175,6 @@ export default function Home() {
     };
   }, [feedMode]);
 
-  // Auto-update portfolio and risk metrics when agent tool results arrive
   useEffect(() => {
     if (!messages.length) return;
 
@@ -235,59 +230,61 @@ export default function Home() {
   }, [messages]);
 
   return (
-    <div className="min-h-screen bg-[#0f0f12] text-gray-200 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[#0a0a0d] text-gray-200">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-8 flex items-start justify-between">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold">
-              <span className="text-[#8b5cf6]">Fintech</span> &
-              <span className="text-[#34d399]"> Crypto</span> Agent
+            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
+              <span className="text-[#8b5cf6]">Fintech</span>
+              <span className="text-gray-500 mx-1">&</span>
+              <span className="text-[#34d399]">Crypto</span>
+              <span className="text-gray-300"> Agent</span>
             </h1>
-            <p className="text-gray-400 mt-1">Purple · Obsidian · Grey · Mint Dashboard</p>
+            <p className="text-sm text-gray-500 mt-1.5">Research · Paper Trading · Risk Insights</p>
           </div>
-          <div className="text-right text-sm text-gray-500">
-            Paper Trading · Research Only
+          <div className="hidden md:block text-xs text-gray-500 bg-[#141418] border border-[#2a2a32] px-3 py-1.5 rounded-full">
+            Simulation Only
           </div>
         </div>
 
-        {/* Real-time Price Ticker */}
+        {/* Live Prices */}
         <div className="dashboard-card mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-[#34d399]">Live Prices</h2>
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-medium text-[#34d399]">Live Prices</h2>
+            <div className="flex items-center gap-2">
               {feedMode === 'websocket' ? (
-                <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                  wsStatus === 'live' ? 'bg-[#34d399]/20 text-[#34d399]' :
-                  wsStatus === 'connecting' ? 'bg-yellow-500/20 text-yellow-400' :
-                  'bg-red-500/20 text-red-400'
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                  wsStatus === 'live' ? 'bg-[#34d399]/10 text-[#34d399]' :
+                  wsStatus === 'connecting' ? 'bg-amber-500/10 text-amber-400' :
+                  'bg-red-500/10 text-red-400'
                 }`}>
-                  {wsStatus === 'live' ? 'WS Live' : wsStatus === 'connecting' ? 'Connecting...' : 'Reconnecting'}
+                  {wsStatus === 'live' ? 'Live' : wsStatus === 'connecting' ? 'Connecting' : 'Reconnecting'}
                 </span>
               ) : (
-                <span className="text-xs text-gray-500">Polled {lastPoll || '...'}</span>
+                <span className="text-xs text-gray-500">Updated {lastPoll || '...'}</span>
               )}
               <button
                 onClick={() => setFeedMode(feedMode === 'websocket' ? 'polling' : 'websocket')}
-                className="text-xs px-3 py-1 rounded bg-[#8b5cf6]/20 text-[#a78bfa] hover:bg-[#8b5cf6]/30 border border-[#8b5cf6]/40"
+                className="text-xs px-3 py-1 rounded-full bg-[#8b5cf6]/10 text-[#a78bfa] hover:bg-[#8b5cf6]/20 border border-[#8b5cf6]/30 transition"
               >
-                Switch to {feedMode === 'websocket' ? 'Polling' : 'WebSocket'}
+                {feedMode === 'websocket' ? 'Polling' : 'WebSocket'}
               </button>
             </div>
           </div>
-          {feedError && <p className="text-xs text-red-400 mb-2">{feedError}</p>}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {feedError && <p className="text-xs text-red-400 mb-3">{feedError}</p>}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {TRACKED.map(coin => {
               const data = prices[coin.symbol];
               const change = data?.change24h;
               return (
-                <div key={coin.symbol} className="text-center">
-                  <div className="text-sm text-gray-400">{coin.symbol}</div>
-                  <div className="text-xl font-mono text-white">
-                    ${data?.price?.toLocaleString(undefined, { maximumFractionDigits: 2 }) || '---'}
+                <div key={coin.symbol} className="price-card">
+                  <div className="text-xs text-gray-500 mb-1">{coin.symbol}</div>
+                  <div className="text-lg md:text-xl font-mono text-white font-medium">
+                    ${data?.price?.toLocaleString(undefined, { maximumFractionDigits: 2 }) || '—'}
                   </div>
                   {change !== undefined && (
-                    <div className={`text-xs font-medium ${change >= 0 ? 'text-[#34d399]' : 'text-red-400'}`}>
+                    <div className={`text-xs mt-1 font-medium ${change >= 0 ? 'text-[#34d399]' : 'text-red-400'}`}>
                       {change >= 0 ? '+' : ''}{change.toFixed(2)}%
                     </div>
                   )}
@@ -295,94 +292,100 @@ export default function Home() {
               );
             })}
           </div>
-          <p className="text-xs text-gray-600 mt-2 text-center">
-            Source: {feedMode === 'websocket' ? 'Binance WebSocket (real-time)' : 'CoinGecko polling (~45s)'}
+          <p className="text-[11px] text-gray-600 mt-3 text-center">
+            {feedMode === 'websocket' ? 'Binance WebSocket' : 'CoinGecko · ~45s'}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Portfolio & Risk */}
-          <div className="lg:col-span-1 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Sidebar */}
+          <div className="lg:col-span-4 space-y-5">
             <div className="dashboard-card">
-              <h2 className="text-lg font-semibold text-[#34d399] mb-3">Paper Portfolio</h2>
-              <div className="space-y-2 text-sm">
+              <h2 className="text-sm font-medium text-[#34d399] mb-4">Paper Portfolio</h2>
+              <div className="space-y-2.5 text-sm">
+                {Object.entries(portfolio).length === 0 || (Object.keys(portfolio).length === 1 && portfolio.USD) ? (
+                  <p className="text-gray-500 text-xs">Starting balance ready</p>
+                ) : null}
                 {Object.entries(portfolio).map(([symbol, amount]) => (
-                  <div key={symbol} className="flex justify-between">
+                  <div key={symbol} className="flex justify-between items-center">
                     <span className="text-gray-400">{symbol}</span>
-                    <span className="font-mono">{Number(amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                    <span className="font-mono text-white">{Number(amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-xs text-gray-500">Auto-updates from agent tool results</p>
+              <p className="mt-4 text-[11px] text-gray-600">Updates from agent actions</p>
             </div>
 
             <div className="dashboard-card">
-              <h2 className="text-lg font-semibold text-[#8b5cf6] mb-3">Risk Metrics</h2>
+              <h2 className="text-sm font-medium text-[#8b5cf6] mb-4">Risk Metrics</h2>
               {risk ? (
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Total Value</span>
+                    <span className="text-gray-500">Total Value</span>
                     <span className="font-mono text-[#34d399]">${risk.totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">P&L</span>
+                    <span className="text-gray-500">P&L</span>
                     <span className={risk.pnl >= 0 ? 'text-[#34d399]' : 'text-red-400'}>
-                      {risk.pnl >= 0 ? '+' : ''}${risk.pnl.toLocaleString(undefined, { maximumFractionDigits: 0 })} ({risk.pnlPct.toFixed(1)}%)
+                      {risk.pnl >= 0 ? '+' : ''}${risk.pnl.toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-xs">({risk.pnlPct.toFixed(1)}%)</span>
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Cash Ratio</span>
+                    <span className="text-gray-500">Cash Ratio</span>
                     <span>{(risk.cashRatio * 100).toFixed(1)}%</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Concentration</span>
+                    <span className="text-gray-500">Concentration</span>
                     <span>{(risk.concentration * 100).toFixed(1)}%</span>
                   </div>
-                  <div className="pt-2 border-t border-gray-700">
-                    <span className="text-gray-400">Risk Score</span>
-                    <div className="mt-1 font-semibold text-[#8b5cf6]">{risk.riskScore}</div>
+                  <div className="pt-3 border-t border-[#2a2a32]">
+                    <div className="text-xs text-gray-500 mb-1">Risk Score</div>
+                    <div className="font-medium text-[#8b5cf6]">{risk.riskScore}</div>
                   </div>
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm">Ask the agent to calculate portfolio value & risk to populate metrics. They will auto-update here.</p>
+                <p className="text-gray-500 text-xs leading-relaxed">Ask the agent to calculate portfolio value and risk. Metrics will appear here automatically.</p>
               )}
             </div>
 
-            <div className="dashboard-card text-xs text-gray-500">
-              <p>Sources: CoinGecko · Basis Desk · X Sentiment · Bigdata.com</p>
-              <p className="mt-1">Not financial advice. Simulation only.</p>
+            <div className="text-[11px] text-gray-600 px-1">
+              CoinGecko · Basis Desk · X Sentiment · Bigdata.com<br />
+              Not financial advice. Simulation only.
             </div>
           </div>
 
-          {/* Right: Chat */}
-          <div className="lg:col-span-2">
-            <div className="dashboard-card h-[600px] flex flex-col">
-              <h2 className="text-lg font-semibold mb-3">Research Agent</h2>
-              <div className="flex-1 overflow-y-auto mb-4 space-y-3 pr-2">
+          {/* Chat */}
+          <div className="lg:col-span-8">
+            <div className="dashboard-card h-[640px] flex flex-col">
+              <h2 className="text-sm font-medium mb-4 text-gray-300">Research Agent</h2>
+              <div className="flex-1 overflow-y-auto mb-4 space-y-3 pr-1">
                 {error && (
-                  <div className="text-red-400 text-sm p-2 bg-red-900/20 rounded">
-                    Chat error: {error.message || 'Unknown error'}. Check API keys and network.
+                  <div className="text-xs text-red-400 bg-red-950/30 border border-red-900/40 rounded-lg p-3">
+                    {error.message || 'Chat error. Check keys and connection.'}
                   </div>
                 )}
                 {messages.length === 0 && (
-                  <div className="text-gray-500 text-sm">
-                    Ask about prices, X sentiment, news, company tearsheets, or paper trade.
-                    <br />
-                    Try: “Calculate my portfolio value and risk metrics”
+                  <div className="text-gray-500 text-sm leading-relaxed">
+                    Ask about prices, sentiment, news, or paper trades.<br />
+                    Try: <span className="text-gray-400">“Calculate my portfolio value and risk metrics”</span>
                   </div>
                 )}
                 {messages.map((m) => (
-                  <div key={m.id} className={`text-sm ${m.role === 'user' ? 'text-right' : ''}`}>
-                    <span className={`inline-block px-3 py-2 rounded-lg max-w-[85%] ${
-                      m.role === 'user'
-                        ? 'bg-[#8b5cf6]/20 text-purple-100'
-                        : 'bg-[#1a1a20] border border-gray-800'
+                  <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                      m.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'
                     }`}>
                       {m.parts?.map((p: any) => p.type === 'text' ? p.text : '').join('') || ''}
-                    </span>
+                    </div>
                   </div>
                 ))}
-                {isLoading && <div className="text-gray-500 text-sm">Agent thinking…</div>}
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="chat-bubble-ai px-3.5 py-2.5 rounded-2xl text-sm text-gray-500">
+                      Thinking…
+                    </div>
+                  </div>
+                )}
               </div>
 
               <form onSubmit={(e) => {
@@ -393,7 +396,7 @@ export default function Home() {
                 }
               }} className="flex gap-2">
                 <input
-                  className="flex-1 bg-[#0f0f12] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#8b5cf6]"
+                  className="flex-1 bg-[#0a0a0d] border border-[#2a2a32] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#8b5cf6] transition"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask the agent…"
@@ -401,7 +404,7 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+                  className="bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:opacity-40 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition"
                 >
                   Send
                 </button>
