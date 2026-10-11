@@ -1,18 +1,16 @@
 import { createMCPClient } from '@ai-sdk/mcp';
 import { streamText, tool } from 'ai';
 import { z } from 'zod';
-
-// Simple in-memory paper portfolio (in production use a database)
-let paperPortfolio: Record<string, number> = { USD: 10000 };
+import { getPortfolio, savePortfolio, resetPortfolio } from '@/lib/portfolio';
 
 const localTools = {
   getPortfolio: tool({
     description: 'Get the current paper trading portfolio balances',
     parameters: z.object({}),
-    execute: async () => paperPortfolio,
+    execute: async () => await getPortfolio(),
   }),
   paperTrade: tool({
-    description: 'Simulate a buy or sell trade in the paper portfolio. Use real prices from tools first.',
+    description: 'Simulate a buy or sell trade in the paper portfolio. Use real prices from tools first. Persists if Redis is configured.',
     parameters: z.object({
       action: z.enum(['buy', 'sell']),
       symbol: z.string().describe('Coin or ticker symbol like BTC, ETH, AAPL'),
@@ -20,18 +18,47 @@ const localTools = {
       price: z.number().positive().describe('Current price in USD'),
     }),
     execute: async ({ action, symbol, amountUsd, price }) => {
+      const portfolio = await getPortfolio();
       const units = amountUsd / price;
       if (action === 'buy') {
-        if (paperPortfolio.USD < amountUsd) return { error: 'Insufficient USD' };
-        paperPortfolio.USD -= amountUsd;
-        paperPortfolio[symbol] = (paperPortfolio[symbol] || 0) + units;
+        if (portfolio.USD < amountUsd) return { error: 'Insufficient USD' };
+        portfolio.USD -= amountUsd;
+        portfolio[symbol] = (portfolio[symbol] || 0) + units;
       } else {
-        const current = paperPortfolio[symbol] || 0;
+        const current = portfolio[symbol] || 0;
         if (current < units) return { error: 'Insufficient holdings' };
-        paperPortfolio[symbol] -= units;
-        paperPortfolio.USD += amountUsd;
+        portfolio[symbol] -= units;
+        portfolio.USD += amountUsd;
       }
-      return { success: true, portfolio: paperPortfolio };
+      await savePortfolio(portfolio);
+      return { success: true, portfolio };
+    },
+  }),
+  resetPortfolio: tool({
+    description: 'Reset the paper portfolio back to the starting $10,000 USD',
+    parameters: z.object({}),
+    execute: async () => await resetPortfolio(),
+  }),
+  calculatePortfolioValue: tool({
+    description: 'Calculate current total portfolio value and P&L by fetching live prices for holdings.',
+    parameters: z.object({
+      prices: z.record(z.string(), z.number()).describe('Map of symbol to current USD price, e.g. {BTC: 65000, ETH: 2500}'),
+    }),
+    execute: async ({ prices }) => {
+      const portfolio = await getPortfolio();
+      let totalValue = portfolio.USD || 0;
+      const holdings: Record<string, { units: number; value: number }> = {};
+      for (const [symbol, units] of Object.entries(portfolio)) {
+        if (symbol === 'USD') continue;
+        const price = prices[symbol] || 0;
+        const value = units * price;
+        holdings[symbol] = { units, value };
+        totalValue += value;
+      }
+      const starting = 10000;
+      const pnl = totalValue - starting;
+      const pnlPct = (pnl / starting) * 100;
+      return { totalValue, starting, pnl, pnlPct, holdings, cash: portfolio.USD };
     },
   }),
   getXSentiment: tool({
@@ -47,8 +74,7 @@ const localTools = {
           body: JSON.stringify({ query }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        return data;
+        return await res.json();
       } catch (err) {
         return { error: 'Failed to fetch X sentiment', details: String(err) };
       }
@@ -59,23 +85,14 @@ const localTools = {
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
-  // Free CoinGecko MCP
   const coingeckoClient = await createMCPClient({
-    transport: {
-      type: 'http',
-      url: 'https://mcp.api.coingecko.com/mcp',
-    },
+    transport: { type: 'http', url: 'https://mcp.api.coingecko.com/mcp' },
   });
 
-  // Free Basis Desk crypto news MCP
   const basisClient = await createMCPClient({
-    transport: {
-      type: 'http',
-      url: 'https://basisdesk.news/mcp',
-    },
+    transport: { type: 'http', url: 'https://basisdesk.news/mcp' },
   });
 
-  // Optional Bigdata.com MCP
   const bigdataApiKey = process.env.BIGDATA_API_KEY;
   let bigdataClient: Awaited<ReturnType<typeof createMCPClient>> | null = null;
   let bigdataTools = {};
@@ -102,24 +119,24 @@ export async function POST(req: Request) {
 
     const result = await streamText({
       model: 'anthropic/claude-sonnet-4-5',
-      system: `You are a professional Fintech and Cryptocurrency research AI agent with real-time market data and sentiment.
+      system: `You are a professional Fintech and Cryptocurrency research AI agent with real-time data, sentiment, and persistent paper trading.
 
 Data sources:
-1. CoinGecko MCP: live crypto prices, markets, trending, historical, on-chain.
-2. Basis Desk MCP: source-verified crypto news, market snapshots, whale transfers, daily briefs.
-3. X/Twitter sentiment tool (getXSentiment): real-time narrative, velocity, and signals from X via free preview.
-4. Bigdata.com MCP (if API key set): company tearsheets, filings/news search, market/country tearsheets, sentiment, watchlists.
-5. Paper trading tools.
+1. CoinGecko MCP: live crypto prices, markets, trending, historical.
+2. Basis Desk MCP: source-verified crypto news, snapshots, whale transfers.
+3. X sentiment tool (getXSentiment): real-time narrative from X.
+4. Bigdata.com MCP (optional): company tearsheets, filings, research.
+5. Persistent paper portfolio tools (getPortfolio, paperTrade, resetPortfolio, calculatePortfolioValue).
 
 Guidelines:
-- Prefer tools for all factual data, prices, news, and sentiment.
-- Use getXSentiment for social buzz, narrative shifts, or "what is CT saying about X".
-- Combine sources (e.g. price from CoinGecko + sentiment from X + news from Basis/Bigdata).
-- Be concise, cite sources where possible, and note this is analysis/simulation only — not financial advice.
-- Paper portfolio starts with $10,000 USD.`,
+- Always use tools for prices, news, sentiment, and portfolio state.
+- When calculating portfolio value, first fetch live prices via CoinGecko tools, then pass them to calculatePortfolioValue.
+- Combine sources for complete analysis.
+- Note this is analysis and simulation only — not financial advice.
+- Portfolio persists across sessions if Upstash Redis is configured; otherwise in-memory.`,
       messages,
       tools: allTools,
-      maxSteps: 10,
+      maxSteps: 12,
     });
 
     return result.toDataStreamResponse();
