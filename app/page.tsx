@@ -1,7 +1,7 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface Portfolio {
   [key: string]: number;
@@ -19,17 +19,17 @@ interface RiskMetrics {
 }
 
 interface PriceData {
-  [id: string]: {
-    usd: number;
-    usd_24h_change?: number;
+  [symbol: string]: {
+    price: number;
+    change24h: number;
   };
 }
 
-const TRACKED_COINS = [
-  { id: 'bitcoin', symbol: 'BTC' },
-  { id: 'ethereum', symbol: 'ETH' },
-  { id: 'solana', symbol: 'SOL' },
-  { id: 'ripple', symbol: 'XRP' },
+const TRACKED = [
+  { binance: 'btcusdt', symbol: 'BTC' },
+  { binance: 'ethusdt', symbol: 'ETH' },
+  { binance: 'solusdt', symbol: 'SOL' },
+  { binance: 'xrpusdt', symbol: 'XRP' },
 ];
 
 export default function Home() {
@@ -40,28 +40,53 @@ export default function Home() {
   const [portfolio, setPortfolio] = useState<Portfolio>({ USD: 10000 });
   const [risk, setRisk] = useState<RiskMetrics | null>(null);
   const [prices, setPrices] = useState<PriceData>({});
-  const [lastUpdate, setLastUpdate] = useState<string>('');
+  const [wsStatus, setWsStatus] = useState<'connecting' | 'live' | 'error'>('connecting');
+  const wsRef = useRef<WebSocket | null>(null);
 
-  // Real-time price feed (CoinGecko public API, polled every 45s)
+  // Real-time Binance WebSocket price feed
   useEffect(() => {
-    const fetchPrices = async () => {
-      try {
-        const ids = TRACKED_COINS.map(c => c.id).join(',');
-        const res = await fetch(
-          `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`
-        );
-        if (!res.ok) return;
-        const data: PriceData = await res.json();
-        setPrices(data);
-        setLastUpdate(new Date().toLocaleTimeString());
-      } catch (err) {
-        console.error('Price fetch failed:', err);
-      }
+    const streams = TRACKED.map(t => `${t.binance}@miniTicker`).join('/');
+    const url = `wss://stream.binance.com:9443/stream?streams=${streams}`;
+
+    const connect = () => {
+      setWsStatus('connecting');
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
+
+      ws.onopen = () => setWsStatus('live');
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          const data = msg.data;
+          if (!data || !data.s) return;
+
+          const symbol = data.s.replace('USDT', '');
+          const price = parseFloat(data.c);
+          const change = parseFloat(data.P);
+
+          setPrices(prev => ({
+            ...prev,
+            [symbol]: { price, change24h: change },
+          }));
+        } catch (err) {
+          console.error('WS parse error:', err);
+        }
+      };
+
+      ws.onerror = () => setWsStatus('error');
+      ws.onclose = () => {
+        setWsStatus('error');
+        // Reconnect after 3s
+        setTimeout(connect, 3000);
+      };
     };
 
-    fetchPrices();
-    const interval = setInterval(fetchPrices, 45000);
-    return () => clearInterval(interval);
+    connect();
+
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+    };
   }, []);
 
   // Auto-update portfolio and risk metrics when agent tool results arrive
@@ -136,21 +161,27 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Real-time Price Ticker */}
+        {/* Real-time Price Ticker (WebSocket) */}
         <div className="dashboard-card mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-[#34d399]">Live Prices</h2>
-            <span className="text-xs text-gray-500">Updated {lastUpdate || '...'}</span>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+              wsStatus === 'live' ? 'bg-[#34d399]/20 text-[#34d399]' :
+              wsStatus === 'connecting' ? 'bg-yellow-500/20 text-yellow-400' :
+              'bg-red-500/20 text-red-400'
+            }`}>
+              {wsStatus === 'live' ? 'WS Live' : wsStatus === 'connecting' ? 'Connecting...' : 'Reconnecting'}
+            </span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {TRACKED_COINS.map(coin => {
-              const data = prices[coin.id];
-              const change = data?.usd_24h_change;
+            {TRACKED.map(coin => {
+              const data = prices[coin.symbol];
+              const change = data?.change24h;
               return (
-                <div key={coin.id} className="text-center">
+                <div key={coin.symbol} className="text-center">
                   <div className="text-sm text-gray-400">{coin.symbol}</div>
                   <div className="text-xl font-mono text-white">
-                    ${data?.usd?.toLocaleString(undefined, { maximumFractionDigits: 2 }) || '---'}
+                    ${data?.price?.toLocaleString(undefined, { maximumFractionDigits: 2 }) || '---'}
                   </div>
                   {change !== undefined && (
                     <div className={`text-xs font-medium ${change >= 0 ? 'text-[#34d399]' : 'text-red-400'}`}>
@@ -161,7 +192,7 @@ export default function Home() {
               );
             })}
           </div>
-          <p className="text-xs text-gray-600 mt-2 text-center">Source: CoinGecko (public API, ~45s refresh)</p>
+          <p className="text-xs text-gray-600 mt-2 text-center">Source: Binance WebSocket (real-time miniTicker)</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
