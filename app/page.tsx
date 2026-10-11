@@ -1,45 +1,160 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+interface Portfolio {
+  [key: string]: number;
+}
+
+interface RiskMetrics {
+  totalValue: number;
+  pnl: number;
+  pnlPct: number;
+  cashRatio: number;
+  concentration: number;
+  riskScore: string;
+  holdings: Record<string, { units: number; value: number }>;
+}
 
 export default function Home() {
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     api: '/api/chat',
   });
-  const [portfolio, setPortfolio] = useState<{ [key: string]: number }>({ USD: 10000 });
+
+  const [portfolio, setPortfolio] = useState<Portfolio>({ USD: 10000 });
+  const [risk, setRisk] = useState<RiskMetrics | null>(null);
+
+  // Simple client-side refresh of portfolio display (agent updates via tools)
+  useEffect(() => {
+    // In a real app you could poll /api/portfolio, but for now we rely on chat updates
+    // or you can expand this later.
+  }, []);
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-2">Fintech & Crypto AI Agent</h1>
-      <p className="text-gray-600 mb-6">Powered by Vercel AI SDK + free CoinGecko MCP. Analyze markets, get insights, and paper trade.</p>
-      
-      <div className="mb-4 p-4 bg-white rounded shadow">
-        <h2 className="font-semibold">Paper Portfolio</h2>
-        <pre className="text-sm">{JSON.stringify(portfolio, null, 2)}</pre>
-      </div>
-
-      <div className="bg-white rounded shadow p-4 mb-4 h-96 overflow-y-auto">
-        {messages.map((m) => (
-          <div key={m.id} className={`mb-3 ${m.role === 'user' ? 'text-right' : ''}`}>
-            <span className="font-semibold">{m.role === 'user' ? 'You' : 'Agent'}: </span>
-            <span className="whitespace-pre-wrap">{m.content}</span>
+    <div className="min-h-screen bg-[#0f0f12] text-gray-200 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold">
+              <span className="text-[#8b5cf6]">Fintech</span> &
+              <span className="text-[#34d399]"> Crypto</span> Agent
+            </h1>
+            <p className="text-gray-400 mt-1">Purple · Obsidian · Grey · Mint Dashboard</p>
           </div>
-        ))}
-        {isLoading && <div>Agent is thinking...</div>}
-      </div>
+          <div className="text-right text-sm text-gray-500">
+            Paper Trading · Research Only
+          </div>
+        </div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <input
-          className="flex-1 border rounded p-2"
-          value={input}
-          onChange={handleInputChange}
-          placeholder="Ask about crypto prices, trends, or simulate a trade..."
-        />
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded" disabled={isLoading}>
-          Send
-        </button>
-      </form>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left: Portfolio & Risk */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="dashboard-card">
+              <h2 className="text-lg font-semibold text-[#34d399] mb-3">Paper Portfolio</h2>
+              <div className="space-y-2 text-sm">
+                {Object.entries(portfolio).map(([symbol, amount]) => (
+                  <div key={symbol} className="flex justify-between">
+                    <span className="text-gray-400">{symbol}</span>
+                    <span className="font-mono">{amount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => {
+                  // Trigger a chat message to refresh
+                  // For demo we keep it simple
+                }}
+                className="mt-4 w-full text-xs text-[#8b5cf6] hover:text-[#a78bfa]"
+              >
+                Ask agent to refresh portfolio →
+              </button>
+            </div>
+
+            <div className="dashboard-card">
+              <h2 className="text-lg font-semibold text-[#8b5cf6] mb-3">Risk Metrics</h2>
+              {risk ? (
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Total Value</span>
+                    <span className="font-mono text-[#34d399]">${risk.totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">P&L</span>
+                    <span className={risk.pnl >= 0 ? 'text-[#34d399]' : 'text-red-400'}>
+                      {risk.pnl >= 0 ? '+' : ''}${risk.pnl.toLocaleString(undefined, { maximumFractionDigits: 0 })} ({risk.pnlPct.toFixed(1)}%)
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Cash Ratio</span>
+                    <span>{(risk.cashRatio * 100).toFixed(1)}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Concentration</span>
+                    <span>{(risk.concentration * 100).toFixed(1)}%</span>
+                  </div>
+                  <div className="pt-2 border-t border-gray-700">
+                    <span className="text-gray-400">Risk Score</span>
+                    <div className="mt-1 font-semibold text-[#8b5cf6]">{risk.riskScore}</div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">Ask the agent to calculate portfolio value & risk to populate metrics.</p>
+              )}
+            </div>
+
+            <div className="dashboard-card text-xs text-gray-500">
+              <p>Sources: CoinGecko · Basis Desk · X Sentiment · Bigdata.com</p>
+              <p className="mt-1">Not financial advice. Simulation only.</p>
+            </div>
+          </div>
+
+          {/* Right: Chat */}
+          <div className="lg:col-span-2">
+            <div className="dashboard-card h-[600px] flex flex-col">
+              <h2 className="text-lg font-semibold mb-3">Research Agent</h2>
+              <div className="flex-1 overflow-y-auto mb-4 space-y-3 pr-2">
+                {messages.length === 0 && (
+                  <div className="text-gray-500 text-sm">
+                    Ask about prices, X sentiment, news, company tearsheets, or paper trade.
+                    <br />
+                    Try: “Calculate my portfolio value and risk metrics”
+                  </div>
+                )}
+                {messages.map((m) => (
+                  <div key={m.id} className={`text-sm ${m.role === 'user' ? 'text-right' : ''}`}>
+                    <span className={`inline-block px-3 py-2 rounded-lg max-w-[85%] ${
+                      m.role === 'user'
+                        ? 'bg-[#8b5cf6]/20 text-purple-100'
+                        : 'bg-[#1a1a20] border border-gray-800'
+                    }`}>
+                      {m.content}
+                    </span>
+                  </div>
+                ))}
+                {isLoading && <div className="text-gray-500 text-sm">Agent thinking…</div>}
+              </div>
+
+              <form onSubmit={handleSubmit} className="flex gap-2">
+                <input
+                  className="flex-1 bg-[#0f0f12] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#8b5cf6]"
+                  value={input}
+                  onChange={handleInputChange}
+                  placeholder="Ask the agent…"
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+                >
+                  Send
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
