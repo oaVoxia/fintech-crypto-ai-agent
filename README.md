@@ -2,55 +2,54 @@
 
 AI-powered research and paper-trading agent for cryptocurrency and broader fintech markets.
 
-Built with **Vercel AI SDK**, deployed on Vercel, and powered by:
-- **CoinGecko MCP** (free, no key) for live crypto data
-- **Bigdata.com MCP** (optional, API key) for deeper market research, company tearsheets, filings, sentiment, and multi-asset analysis
+Built with **Vercel AI SDK** and powered by multiple free + optional premium data sources:
+- **CoinGecko MCP** — live crypto prices & markets (free)
+- **Basis Desk MCP** — source-verified crypto news & market snapshots (free)
+- **X/Twitter Sentiment** — real-time narrative & social signals via free SentimentAlpha preview
+- **Bigdata.com MCP** — deeper company, filings, tearsheets & research (optional API key)
 
 ## Features
-- Real-time crypto prices, markets, trending coins, historical data (CoinGecko)
-- Deep research: company financials, earnings context, news/filings search, market tearsheets, country economics, sentiment (Bigdata.com)
-- Paper trading simulation (buy/sell against a virtual $10k USD portfolio)
+- Real-time crypto prices, markets, trending, historical data
+- Source-verified crypto news and market context
+- Real-time X/Twitter market sentiment and narrative velocity
+- Deep research: company tearsheets, filings, news search, multi-asset analysis (with Bigdata key)
+- Paper trading simulation
 - Streaming chat interface
-- Educational and risk-aware responses
 
 ## Setup
 1. Clone the repo
 2. `npm install` or `pnpm install`
-3. Create a `.env.local` file:
+3. Create `.env.local`:
    ```bash
-   # Required for the LLM (recommended: Vercel AI Gateway)
+   # Required for the LLM (Vercel AI Gateway recommended)
    # AI_GATEWAY_API_KEY=your_key
-   # Or use provider keys:
    # ANTHROPIC_API_KEY=...
    # OPENAI_API_KEY=...
 
-   # Optional but recommended for deeper research
+   # Optional for deeper research
    BIGDATA_API_KEY=your_bigdata_api_key
    ```
-4. Get a Bigdata.com API key:
-   - Go to [platform.bigdata.com/api-keys](https://platform.bigdata.com/api-keys)
-   - Create a key and paste it into `BIGDATA_API_KEY`
+4. Get Bigdata key (optional): https://platform.bigdata.com/api-keys
 5. `npm run dev`
-6. Deploy to Vercel and add the same environment variables in the project settings.
+6. Deploy to Vercel and add the same env vars.
 
 ## Usage Examples
-- “What’s the current price and 24h change of Bitcoin and Ethereum?”
-- “Show me a company tearsheet for Coinbase or MicroStrategy.”
-- “Search recent news and filings about Bitcoin ETF inflows.”
-- “Give me the global market tearsheet and crypto performance.”
-- “Paper buy $1000 of SOL at the current price, then show my portfolio.”
-- “Analyze sentiment and recent developments for NVDA.”
+- “What’s the price of Bitcoin and what is X sentiment saying about it?”
+- “Show me the latest crypto news and market snapshot.”
+- “Get X sentiment for $SOL and compare with price action.”
+- “Give me a company tearsheet for Coinbase plus recent social narrative.”
+- “Paper buy $500 of ETH and show my portfolio.”
 
 ## Notes
-- CoinGecko MCP is free and keyless (subject to shared rate limits).
-- Bigdata.com provides premium financial data with citations; usage is metered via your API key.
-- Paper trading is in-memory only (resets on cold starts). Use a database for persistence in production.
-- **Not financial advice.** For research, education, and simulation only.
+- All free sources (CoinGecko, Basis Desk, X sentiment preview) work out of the box with no keys.
+- Bigdata.com adds premium cited research when `BIGDATA_API_KEY` is set.
+- Paper trading is in-memory (resets on restart). Use a database for production persistence.
+- **Not financial advice.** Research, education, and simulation only.
 
 ## Extending
-- Add more local tools (alerts, charts, risk metrics).
-- Persist portfolio with Vercel Postgres / KV or Cloudflare D1.
-- Integrate Stripe for premium tiers.
-- Use Vercel Automations for scheduled research reports.
+- Persist portfolio (Vercel Postgres / KV).
+- Add more local analysis tools.
+- Integrate Stripe for premium features.
+- Use official X API (pay-per-use) for higher volume if needed.
 
-Built for Vercel + your connected Bigdata.com and other services.
+Built for Vercel.
