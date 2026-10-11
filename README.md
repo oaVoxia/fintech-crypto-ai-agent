@@ -1,35 +1,56 @@
 # Fintech & Crypto AI Agent
 
-AI-powered agent for cryptocurrency analysis and paper trading, built with **Vercel AI SDK** and deployed on Vercel.
+AI-powered research and paper-trading agent for cryptocurrency and broader fintech markets.
+
+Built with **Vercel AI SDK**, deployed on Vercel, and powered by:
+- **CoinGecko MCP** (free, no key) for live crypto data
+- **Bigdata.com MCP** (optional, API key) for deeper market research, company tearsheets, filings, sentiment, and multi-asset analysis
 
 ## Features
-- Real-time crypto market data via free **CoinGecko MCP** server (`https://mcp.api.coingecko.com/mcp`)
-- Paper trading simulation (buy/sell with local tools)
-- Market analysis, price queries, trending coins, historical data
-- Chat interface powered by AI SDK
-- Fintech-focused: portfolio insights, risk notes
+- Real-time crypto prices, markets, trending coins, historical data (CoinGecko)
+- Deep research: company financials, earnings context, news/filings search, market tearsheets, country economics, sentiment (Bigdata.com)
+- Paper trading simulation (buy/sell against a virtual $10k USD portfolio)
+- Streaming chat interface
+- Educational and risk-aware responses
 
 ## Setup
 1. Clone the repo
 2. `npm install` or `pnpm install`
-3. Set up an AI model key:
-   - Recommended: Vercel AI Gateway (create key in Vercel dashboard)
-   - Or set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.
-4. `npm run dev`
-5. Deploy to Vercel: connect this GitHub repo or `vercel deploy`
+3. Create a `.env.local` file:
+   ```bash
+   # Required for the LLM (recommended: Vercel AI Gateway)
+   # AI_GATEWAY_API_KEY=your_key
+   # Or use provider keys:
+   # ANTHROPIC_API_KEY=...
+   # OPENAI_API_KEY=...
 
-## Usage
-Ask questions like:
-- "What's the current price of Bitcoin and Ethereum?"
-- "Show me trending coins"
-- "Analyze BTC performance over the last week"
-- "Paper buy $1000 of ETH at current price"
-- "What's my portfolio?"
+   # Optional but recommended for deeper research
+   BIGDATA_API_KEY=your_bigdata_api_key
+   ```
+4. Get a Bigdata.com API key:
+   - Go to [platform.bigdata.com/api-keys](https://platform.bigdata.com/api-keys)
+   - Create a key and paste it into `BIGDATA_API_KEY`
+5. `npm run dev`
+6. Deploy to Vercel and add the same environment variables in the project settings.
+
+## Usage Examples
+- “What’s the current price and 24h change of Bitcoin and Ethereum?”
+- “Show me a company tearsheet for Coinbase or MicroStrategy.”
+- “Search recent news and filings about Bitcoin ETF inflows.”
+- “Give me the global market tearsheet and crypto performance.”
+- “Paper buy $1000 of SOL at the current price, then show my portfolio.”
+- “Analyze sentiment and recent developments for NVDA.”
 
 ## Notes
-- Uses free CoinGecko MCP (rate-limited but no key required)
-- Paper trading is simulated in-memory (reset on restart; use DB for production)
-- Not financial advice. For education and analysis only.
-- Integrates with your connected Bigdata.com for deeper market research if extended.
+- CoinGecko MCP is free and keyless (subject to shared rate limits).
+- Bigdata.com provides premium financial data with citations; usage is metered via your API key.
+- Paper trading is in-memory only (resets on cold starts). Use a database for persistence in production.
+- **Not financial advice.** For research, education, and simulation only.
 
-Built for Vercel. Enjoy!
+## Extending
+- Add more local tools (alerts, charts, risk metrics).
+- Persist portfolio with Vercel Postgres / KV or Cloudflare D1.
+- Integrate Stripe for premium tiers.
+- Use Vercel Automations for scheduled research reports.
+
+Built for Vercel + your connected Bigdata.com and other services.
