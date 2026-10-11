@@ -6,12 +6,12 @@ import { getPortfolio, savePortfolio, resetPortfolio } from '@/lib/portfolio';
 const localTools = {
   getPortfolio: tool({
     description: 'Get the current paper trading portfolio balances',
-    parameters: z.object({}),
+    inputSchema: z.object({}),
     execute: async () => await getPortfolio(),
   }),
   paperTrade: tool({
     description: 'Simulate a buy or sell trade in the paper portfolio. Use real prices from tools first.',
-    parameters: z.object({
+    inputSchema: z.object({
       action: z.enum(['buy', 'sell']),
       symbol: z.string().describe('Coin or ticker symbol like BTC, ETH, AAPL'),
       amountUsd: z.number().positive(),
@@ -36,12 +36,12 @@ const localTools = {
   }),
   resetPortfolio: tool({
     description: 'Reset the paper portfolio back to the starting $10,000 USD',
-    parameters: z.object({}),
+    inputSchema: z.object({}),
     execute: async () => await resetPortfolio(),
   }),
   calculatePortfolioValue: tool({
     description: 'Calculate current total portfolio value, P&L, and basic risk metrics. Pass live prices.',
-    parameters: z.object({
+    inputSchema: z.object({
       prices: z.record(z.string(), z.number()).describe('Map of symbol to current USD price'),
     }),
     execute: async ({ prices }) => {
@@ -85,7 +85,7 @@ const localTools = {
   }),
   getXSentiment: tool({
     description: 'Get real-time X/Twitter market sentiment and narrative for a ticker or topic.',
-    parameters: z.object({
+    inputSchema: z.object({
       query: z.string(),
     }),
     execute: async ({ query }) => {
