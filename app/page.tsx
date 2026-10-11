@@ -26,10 +26,10 @@ interface PriceData {
 }
 
 const TRACKED = [
-  { binance: 'btcusdt', symbol: 'BTC' },
-  { binance: 'ethusdt', symbol: 'ETH' },
-  { binance: 'solusdt', symbol: 'SOL' },
-  { binance: 'xrpusdt', symbol: 'XRP' },
+  { binance: 'btcusdt', id: 'bitcoin', symbol: 'BTC' },
+  { binance: 'ethusdt', id: 'ethereum', symbol: 'ETH' },
+  { binance: 'solusdt', id: 'solana', symbol: 'SOL' },
+  { binance: 'xrpusdt', id: 'ripple', symbol: 'XRP' },
 ];
 
 export default function Home() {
@@ -40,11 +40,30 @@ export default function Home() {
   const [portfolio, setPortfolio] = useState<Portfolio>({ USD: 10000 });
   const [risk, setRisk] = useState<RiskMetrics | null>(null);
   const [prices, setPrices] = useState<PriceData>({});
+  const [feedMode, setFeedMode] = useState<'websocket' | 'polling'>('websocket');
   const [wsStatus, setWsStatus] = useState<'connecting' | 'live' | 'error'>('connecting');
+  const [lastPoll, setLastPoll] = useState<string>('');
   const wsRef = useRef<WebSocket | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Real-time Binance WebSocket price feed
+  // Clean up on mode change or unmount
   useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [feedMode]);
+
+  // WebSocket feed
+  useEffect(() => {
+    if (feedMode !== 'websocket') return;
+
     const streams = TRACKED.map(t => `${t.binance}@miniTicker`).join('/');
     const url = `wss://stream.binance.com:9443/stream?streams=${streams}`;
 
@@ -76,9 +95,10 @@ export default function Home() {
 
       ws.onerror = () => setWsStatus('error');
       ws.onclose = () => {
-        setWsStatus('error');
-        // Reconnect after 3s
-        setTimeout(connect, 3000);
+        if (feedMode === 'websocket') {
+          setWsStatus('error');
+          setTimeout(connect, 3000);
+        }
       };
     };
 
@@ -87,7 +107,45 @@ export default function Home() {
     return () => {
       if (wsRef.current) wsRef.current.close();
     };
-  }, []);
+  }, [feedMode]);
+
+  // Polling feed (CoinGecko)
+  useEffect(() => {
+    if (feedMode !== 'polling') return;
+
+    const fetchPrices = async () => {
+      try {
+        const ids = TRACKED.map(c => c.id).join(',');
+        const res = await fetch(
+          `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const newPrices: PriceData = {};
+        TRACKED.forEach(coin => {
+          const coinData = data[coin.id];
+          if (coinData) {
+            newPrices[coin.symbol] = {
+              price: coinData.usd,
+              change24h: coinData.usd_24h_change || 0,
+            };
+          }
+        });
+        setPrices(newPrices);
+        setLastPoll(new Date().toLocaleTimeString());
+      } catch (err) {
+        console.error('Poll failed:', err);
+      }
+    };
+
+    fetchPrices();
+    pollIntervalRef.current = setInterval(fetchPrices, 45000);
+
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [feedMode]);
 
   // Auto-update portfolio and risk metrics when agent tool results arrive
   useEffect(() => {
@@ -161,17 +219,29 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Real-time Price Ticker (WebSocket) */}
+        {/* Real-time Price Ticker */}
         <div className="dashboard-card mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-[#34d399]">Live Prices</h2>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-              wsStatus === 'live' ? 'bg-[#34d399]/20 text-[#34d399]' :
-              wsStatus === 'connecting' ? 'bg-yellow-500/20 text-yellow-400' :
-              'bg-red-500/20 text-red-400'
-            }`}>
-              {wsStatus === 'live' ? 'WS Live' : wsStatus === 'connecting' ? 'Connecting...' : 'Reconnecting'}
-            </span>
+            <div className="flex items-center gap-3">
+              {feedMode === 'websocket' ? (
+                <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                  wsStatus === 'live' ? 'bg-[#34d399]/20 text-[#34d399]' :
+                  wsStatus === 'connecting' ? 'bg-yellow-500/20 text-yellow-400' :
+                  'bg-red-500/20 text-red-400'
+                }`}>
+                  {wsStatus === 'live' ? 'WS Live' : wsStatus === 'connecting' ? 'Connecting...' : 'Reconnecting'}
+                </span>
+              ) : (
+                <span className="text-xs text-gray-500">Polled {lastPoll || '...'}</span>
+              )}
+              <button
+                onClick={() => setFeedMode(feedMode === 'websocket' ? 'polling' : 'websocket')}
+                className="text-xs px-3 py-1 rounded bg-[#8b5cf6]/20 text-[#a78bfa] hover:bg-[#8b5cf6]/30 border border-[#8b5cf6]/40"
+              >
+                Switch to {feedMode === 'websocket' ? 'Polling' : 'WebSocket'}
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {TRACKED.map(coin => {
@@ -192,7 +262,9 @@ export default function Home() {
               );
             })}
           </div>
-          <p className="text-xs text-gray-600 mt-2 text-center">Source: Binance WebSocket (real-time miniTicker)</p>
+          <p className="text-xs text-gray-600 mt-2 text-center">
+            Source: {feedMode === 'websocket' ? 'Binance WebSocket (real-time)' : 'CoinGecko polling (~45s)'}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
