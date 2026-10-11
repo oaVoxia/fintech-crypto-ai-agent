@@ -15,6 +15,7 @@ interface RiskMetrics {
   concentration: number;
   riskScore: string;
   holdings: Record<string, { units: number; value: number }>;
+  cash?: number;
 }
 
 export default function Home() {
@@ -25,11 +26,65 @@ export default function Home() {
   const [portfolio, setPortfolio] = useState<Portfolio>({ USD: 10000 });
   const [risk, setRisk] = useState<RiskMetrics | null>(null);
 
-  // Simple client-side refresh of portfolio display (agent updates via tools)
+  // Auto-update portfolio and risk metrics when agent tool results arrive
   useEffect(() => {
-    // In a real app you could poll /api/portfolio, but for now we rely on chat updates
-    // or you can expand this later.
-  }, []);
+    if (!messages.length) return;
+
+    // Scan recent messages for tool results
+    for (let i = messages.length - 1; i >= Math.max(0, messages.length - 5); i--) {
+      const msg = messages[i];
+      if (msg.role !== 'assistant') continue;
+
+      // Support both older toolInvocations and newer parts
+      const toolInvocations = (msg as any).toolInvocations || [];
+      const parts = (msg as any).parts || [];
+
+      // Check toolInvocations (AI SDK 4 style)
+      for (const inv of toolInvocations) {
+        if (inv.state === 'result' && inv.result) {
+          if (inv.toolName === 'getPortfolio' || inv.toolName === 'paperTrade' || inv.toolName === 'resetPortfolio') {
+            const result = inv.result;
+            if (result.portfolio) setPortfolio(result.portfolio);
+            else if (typeof result === 'object' && !result.error) setPortfolio(result);
+          }
+          if (inv.toolName === 'calculatePortfolioValue' && inv.result.totalValue !== undefined) {
+            setRisk(inv.result);
+            // Also update portfolio holdings if present
+            if (inv.result.holdings) {
+              const newPort: Portfolio = { USD: inv.result.cash || 0 };
+              Object.entries(inv.result.holdings).forEach(([sym, data]: any) => {
+                newPort[sym] = data.units;
+              });
+              setPortfolio(newPort);
+            }
+          }
+        }
+      }
+
+      // Check parts (AI SDK 5+ style)
+      for (const part of parts) {
+        if (part.type?.startsWith('tool-') && part.state === 'output-available' && part.output) {
+          const toolName = part.type.replace('tool-', '');
+          const output = part.output;
+
+          if (['getPortfolio', 'paperTrade', 'resetPortfolio'].includes(toolName)) {
+            if (output.portfolio) setPortfolio(output.portfolio);
+            else if (typeof output === 'object' && !output.error) setPortfolio(output);
+          }
+          if (toolName === 'calculatePortfolioValue' && output.totalValue !== undefined) {
+            setRisk(output);
+            if (output.holdings) {
+              const newPort: Portfolio = { USD: output.cash || 0 };
+              Object.entries(output.holdings).forEach(([sym, data]: any) => {
+                newPort[sym] = data.units;
+              });
+              setPortfolio(newPort);
+            }
+          }
+        }
+      }
+    }
+  }, [messages]);
 
   return (
     <div className="min-h-screen bg-[#0f0f12] text-gray-200 p-4 md:p-8">
@@ -57,19 +112,11 @@ export default function Home() {
                 {Object.entries(portfolio).map(([symbol, amount]) => (
                   <div key={symbol} className="flex justify-between">
                     <span className="text-gray-400">{symbol}</span>
-                    <span className="font-mono">{amount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                    <span className="font-mono">{Number(amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
                   </div>
                 ))}
               </div>
-              <button
-                onClick={() => {
-                  // Trigger a chat message to refresh
-                  // For demo we keep it simple
-                }}
-                className="mt-4 w-full text-xs text-[#8b5cf6] hover:text-[#a78bfa]"
-              >
-                Ask agent to refresh portfolio →
-              </button>
+              <p className="mt-3 text-xs text-gray-500">Auto-updates from agent tool results</p>
             </div>
 
             <div className="dashboard-card">
@@ -100,7 +147,7 @@ export default function Home() {
                   </div>
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm">Ask the agent to calculate portfolio value & risk to populate metrics.</p>
+                <p className="text-gray-500 text-sm">Ask the agent to calculate portfolio value & risk to populate metrics. They will auto-update here.</p>
               )}
             </div>
 
@@ -129,7 +176,7 @@ export default function Home() {
                         ? 'bg-[#8b5cf6]/20 text-purple-100'
                         : 'bg-[#1a1a20] border border-gray-800'
                     }`}>
-                      {m.content}
+                      {typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}
                     </span>
                   </div>
                 ))}
