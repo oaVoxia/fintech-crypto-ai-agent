@@ -2,21 +2,22 @@
 
 Mobile-friendly AI-powered research and paper-trading agent for cryptocurrency and fintech.
 
-## Features (Phases 1-5)
-- **PWA**: Installable on mobile (Add to Home Screen), offline shell, purple/obsidian theme.
-- **Real-time prices**: Toggle WebSocket (Binance) or polling (CoinGecko).
+## Features
+- **PWA**: Installable (Add to Home Screen). Service worker registered. Purple/obsidian theme.
+- **Real-time prices**: Toggle WebSocket (Binance) or polling (CoinGecko) with error handling and clean reconnects.
 - **Persistent paper portfolio** with Upstash Redis + risk metrics (auto-updating UI).
 - **X sentiment**, Basis Desk news, CoinGecko MCP, optional Bigdata.com.
-- **Risk controls**: Concentration, cash ratio, risk score. Paper mode default. Live path requires explicit user confirmation + limits (not enabled by default).
-- **Capacitor Android**: Wrap the deployed web app as a native Android APK.
-- **Push-ready**: Service worker supports push notifications (configure FCM for Android).
+- **Risk controls**: Concentration, cash ratio, risk score. Paper mode default.
+- **Capacitor Android**: Live server.url mode (update URL after Vercel deploy).
+- **Push-ready** service worker.
 
 ## Setup
 1. Clone & `npm install`
-2. Copy `.env.example` to `.env.local` and fill keys (AI, optional BIGDATA, UPSTASH for persistence).
-3. `npm run dev` — mobile responsive dashboard.
-4. Deploy to Vercel, update `capacitor.config.ts` server.url with your URL.
-5. For Android:
+2. Copy `.env.example` to `.env.local` and fill keys (AI provider required, optional BIGDATA, UPSTASH).
+3. `npm run dev`
+4. Deploy to Vercel.
+5. Update `capacitor.config.ts` `server.url` (or set CAPACITOR_SERVER_URL) with your live URL.
+6. For Android:
    ```bash
    npm run cap:add:android
    npm run cap:sync
@@ -24,13 +25,12 @@ Mobile-friendly AI-powered research and paper-trading agent for cryptocurrency a
    ```
    Build APK in Android Studio.
 
-## Mobile Notes
-- Bottom-friendly layout, large touch targets.
-- PWA manifest + basic SW for installability.
-- Live prices via WS/polling toggle.
-- Not financial advice. Simulation/paper only by default. High risk if extending to live trading.
+## PWA Icons
+Add `public/icon-192.png` and `public/icon-512.png` (or generate via realfavicongenerator.net) for full install experience. Manifest references them.
 
-## Extending to Live
-Add exchange API keys (user-provided), enforce max position/daily loss, require confirmation. Keep paper as default.
+## Notes
+- Without Redis, portfolio is in-memory per instance and resets on cold starts.
+- Not financial advice. Simulation/paper only by default.
+- Chat errors and feed errors now surface in the UI.
 
 Built for Vercel + Capacitor.

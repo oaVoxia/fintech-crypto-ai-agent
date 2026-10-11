@@ -33,7 +33,7 @@ const TRACKED = [
 ];
 
 export default function Home() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
     api: '/api/chat',
   });
 
@@ -43,8 +43,19 @@ export default function Home() {
   const [feedMode, setFeedMode] = useState<'websocket' | 'polling'>('websocket');
   const [wsStatus, setWsStatus] = useState<'connecting' | 'live' | 'error'>('connecting');
   const [lastPoll, setLastPoll] = useState<string>('');
+  const [feedError, setFeedError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Register service worker for PWA
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => {
+        console.error('SW registration failed:', err);
+      });
+    }
+  }, []);
 
   // Clean up on mode change or unmount
   useEffect(() => {
@@ -57,10 +68,14 @@ export default function Home() {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
     };
   }, [feedMode]);
 
-  // WebSocket feed
+  // WebSocket feed with better lifecycle
   useEffect(() => {
     if (feedMode !== 'websocket') return;
 
@@ -68,7 +83,9 @@ export default function Home() {
     const url = `wss://stream.binance.com:9443/stream?streams=${streams}`;
 
     const connect = () => {
+      if (wsRef.current) wsRef.current.close();
       setWsStatus('connecting');
+      setFeedError(null);
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
@@ -93,11 +110,15 @@ export default function Home() {
         }
       };
 
-      ws.onerror = () => setWsStatus('error');
+      ws.onerror = () => {
+        setWsStatus('error');
+        setFeedError('WebSocket error');
+      };
+
       ws.onclose = () => {
+        setWsStatus('error');
         if (feedMode === 'websocket') {
-          setWsStatus('error');
-          setTimeout(connect, 3000);
+          reconnectTimeoutRef.current = setTimeout(connect, 3000);
         }
       };
     };
@@ -106,10 +127,11 @@ export default function Home() {
 
     return () => {
       if (wsRef.current) wsRef.current.close();
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
     };
   }, [feedMode]);
 
-  // Polling feed (CoinGecko)
+  // Polling feed (CoinGecko) with error handling
   useEffect(() => {
     if (feedMode !== 'polling') return;
 
@@ -119,7 +141,10 @@ export default function Home() {
         const res = await fetch(
           `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`
         );
-        if (!res.ok) return;
+        if (!res.ok) {
+          setFeedError(`Poll failed: ${res.status}`);
+          return;
+        }
         const data = await res.json();
 
         const newPrices: PriceData = {};
@@ -134,7 +159,9 @@ export default function Home() {
         });
         setPrices(newPrices);
         setLastPoll(new Date().toLocaleTimeString());
+        setFeedError(null);
       } catch (err) {
+        setFeedError('Poll network error');
         console.error('Poll failed:', err);
       }
     };
@@ -243,6 +270,7 @@ export default function Home() {
               </button>
             </div>
           </div>
+          {feedError && <p className="text-xs text-red-400 mb-2">{feedError}</p>}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {TRACKED.map(coin => {
               const data = prices[coin.symbol];
@@ -326,6 +354,11 @@ export default function Home() {
             <div className="dashboard-card h-[600px] flex flex-col">
               <h2 className="text-lg font-semibold mb-3">Research Agent</h2>
               <div className="flex-1 overflow-y-auto mb-4 space-y-3 pr-2">
+                {error && (
+                  <div className="text-red-400 text-sm p-2 bg-red-900/20 rounded">
+                    Chat error: {error.message || 'Unknown error'}. Check API keys and network.
+                  </div>
+                )}
                 {messages.length === 0 && (
                   <div className="text-gray-500 text-sm">
                     Ask about prices, X sentiment, news, company tearsheets, or paper trade.

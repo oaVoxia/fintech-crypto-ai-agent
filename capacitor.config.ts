@@ -3,9 +3,10 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.oavoxia.fintechcryptoagent',
   appName: 'Fintech Crypto Agent',
-  webDir: 'out',
+  webDir: 'public', // For live server.url mode; use 'out' only if doing static export
   server: {
-    url: 'https://your-vercel-app.vercel.app', // Replace with your deployed URL
+    // IMPORTANT: Replace with your actual deployed Vercel URL after deploy
+    url: process.env.CAPACITOR_SERVER_URL || 'https://your-vercel-app.vercel.app',
     cleartext: true,
   },
   plugins: {

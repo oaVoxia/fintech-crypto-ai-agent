@@ -16,10 +16,6 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        <meta name="mobile-web-app-capable" content="yes" />
-        <link rel="manifest" href="/manifest.webmanifest" />
-      </head>
       <body className="bg-[#0f0f12] text-gray-200 font-sans antialiased">{children}</body>
     </html>
   );
