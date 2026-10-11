@@ -3,22 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --obsidian: #0a0a0d;
-  --obsidian-light: #141418;
-  --obsidian-card: #1c1c22;
+  --obsidian: #07070a;
+  --obsidian-card: #141418;
   --purple: #8b5cf6;
-  --purple-glow: rgba(139, 92, 246, 0.15);
+  --purple-deep: #7c3aed;
+  --purple-soft: rgba(139, 92, 246, 0.12);
   --mint: #34d399;
-  --mint-glow: rgba(52, 211, 153, 0.12);
-  --grey: #6b7280;
   --border: #2a2a32;
 }
 
 body {
   background: var(--obsidian);
   color: #e4e4e7;
-  margin: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
 }
 
 .dashboard-card {
@@ -26,13 +23,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 1.5rem;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.dashboard-card:hover {
-  border-color: #3a3a44;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
 }
 
 .price-card {
@@ -41,17 +32,11 @@ body {
   border-radius: 12px;
   padding: 1rem;
   text-align: center;
-  transition: transform 0.15s, border-color 0.15s;
-}
-
-.price-card:hover {
-  transform: translateY(-2px);
-  border-color: #3f3f48;
 }
 
 .chat-bubble-user {
-  background: rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.25);
+  background: var(--purple-soft);
+  border: 1px solid rgba(139, 92, 246, 0.3);
   color: #e9d5ff;
 }
 
